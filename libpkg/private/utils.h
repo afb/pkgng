@@ -29,6 +29,9 @@
 #define _PKG_UTIL_H
 
 #include <sys/types.h>
+#ifdef __APPLE__
+#include <sys/stat.h>
+#endif
 #include <sys/sbuf.h>
 #include <sys/param.h>
 #include <uthash.h>

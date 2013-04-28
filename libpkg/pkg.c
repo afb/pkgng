@@ -26,6 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __APPLE__
+#include <sys/stat.h>
+#endif
+
 #include <archive.h>
 #include <archive_entry.h>
 #include <assert.h>
