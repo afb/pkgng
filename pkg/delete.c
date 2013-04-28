@@ -28,6 +28,9 @@
  */
 
 #include <err.h>
+#ifdef __APPLE__
+#include <inttypes.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <sysexits.h>
