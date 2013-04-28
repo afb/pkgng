@@ -39,7 +39,12 @@
 static int rc_stop(const char *);
 static int rc_start(const char *);
 
+#ifdef __APPLE__
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#else
 extern char **environ;
+#endif /* __APPLE__ */
 
 int
 pkg_start_stop_rc_scripts(struct pkg *pkg, pkg_rc_attr attr)

@@ -25,6 +25,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __FreeBSD__
+
 #include <sys/endian.h>
 #include <sys/types.h>
 #ifndef BUNDLED_LIBELF
@@ -680,3 +682,5 @@ pkg_suggest_arch(struct pkg *pkg, const char *arch, bool isdefault)
 	}
 	return (EPKG_OK);
 }
+
+#endif

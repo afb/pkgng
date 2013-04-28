@@ -28,7 +28,9 @@
  */
 
 #include <sys/param.h>
+#ifdef __FreeBSD__
 #include <sys/jail.h>
+#endif
 #include <sys/stat.h>
 #include <sys/queue.h>
 

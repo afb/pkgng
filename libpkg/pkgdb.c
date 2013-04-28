@@ -133,6 +133,42 @@ static struct column_mapping {
 	{ NULL,		-1 }
 };
 
+#ifdef __APPLE__
+static const char group_line_format[] = "%s:%s:%ju:";
+
+static char *
+gr_make(const struct group *gr)
+{
+	char *line;
+	size_t line_size;
+	int ndx;
+
+	/* Calculate the length of the group line. */
+	line_size = snprintf(NULL, 0, group_line_format, gr->gr_name,
+	    gr->gr_passwd, (uintmax_t)gr->gr_gid) + 1;
+	if (gr->gr_mem != NULL) {
+		for (ndx = 0; gr->gr_mem[ndx] != NULL; ndx++)
+			line_size += strlen(gr->gr_mem[ndx]) + 1;
+		if (ndx > 0)
+			line_size--;
+	}
+
+	/* Create the group line and fill it. */
+	if ((line = malloc(line_size)) == NULL)
+		return (NULL);
+	snprintf(line, line_size, group_line_format, gr->gr_name, gr->gr_passwd,
+	    (uintmax_t)gr->gr_gid);
+	if (gr->gr_mem != NULL)
+		for (ndx = 0; gr->gr_mem[ndx] != NULL; ndx++) {
+			strcat(line, gr->gr_mem[ndx]);
+			if (gr->gr_mem[ndx + 1] != NULL)
+				strcat(line, ",");
+		}
+
+	return (line);
+}
+#endif
+
 static int
 load_val(sqlite3 *db, struct pkg *pkg, const char *sql, unsigned flags,
     int (*pkg_adddata)(struct pkg *pkg, const char *data), int list)

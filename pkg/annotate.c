@@ -33,6 +33,10 @@
 #include <unistd.h>
 #include <libutil.h>
 
+#ifndef __FreeBSD__
+#include <errno.h>
+#endif
+
 #include <pkg.h>
 
 #include "pkgcli.h"
@@ -154,7 +158,12 @@ read_input(void)
 		}
 		sbuf_putc(input, ch);
 	}
+#ifdef __FreeBSD__
 	if (sbuf_finish(input) != 0)
+#else
+	sbuf_finish(input);
+	if (errno != 0)
+#endif
 		err(EX_DATAERR, "Could not read value data");
 
 	return (input);

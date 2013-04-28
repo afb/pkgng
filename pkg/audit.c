@@ -43,7 +43,9 @@
 #include <sysexits.h>
 #include <utlist.h>
 
+#ifdef __FreeBSD__
 #include <bsdxml.h>
+#endif
 
 #include <pkg.h>
 #include "pkgcli.h"
@@ -547,10 +549,10 @@ parse_db_vulnxml(const char *path, struct audit_entry **h)
 	int fd;
 	void *mem;
 	struct stat st;
-	XML_Parser parser;
 	struct vulnxml_userdata ud;
 	int ret = EPKG_OK;
-
+#ifndef NO_BSDXML
+	XML_Parser parser;
 	if (stat(path, &st) == -1)
 		return (EPKG_FATAL);
 
@@ -582,6 +584,9 @@ parse_db_vulnxml(const char *path, struct audit_entry **h)
 	munmap(mem, st.st_size);
 
 	*h = ud.h;
+#else
+	ret = EPKG_FATAL;
+#endif
 
 	return (ret);
 }

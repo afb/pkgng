@@ -37,6 +37,22 @@
 static pkg_event_cb _cb = NULL;
 static void *_data = NULL;
 
+#ifdef __APPLE__
+static int
+dprintf(int fd, const char * __restrict fmt, ...)
+{
+    va_list ap;
+    FILE *f = fdopen(fd, 'a');
+	int ret;
+
+	va_start(ap, fmt);
+    ret = vfprintf(f, fmt, ap);
+    fclose(f);
+    va_end(ap);
+	return (ret);
+}
+#endif /* __APPLE__ */
+
 static char *
 sbuf_json_escape(struct sbuf *buf, const char *str)
 {

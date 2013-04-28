@@ -8,6 +8,13 @@ LIBDIR=		${PREFIX}/lib
 INCLUDEDIR=	${PREFIX}/include
 SHLIB_MAJOR=	1
 
+.if defined(DARWIN)
+CFLAGS+=	-D"__DECONST(type,var)=((type)(uintptr_t)(const void *)(var))" \
+		-D"sbuf_new_auto()=sbuf_new(NULL, NULL, 0, SBUF_AUTOEXTEND)"
+LDFLAGS+=	-Wl,-search_paths_first \
+		-v
+.endif
+
 PC=		pkg.pc
 PKGH=		pkg.h
 SRCS=		${PC} \
@@ -26,6 +33,7 @@ SRCS=		${PC} \
 		pkg_elf.c \
 		pkg_event.c \
 		pkg_jobs.c \
+		pkg_macho.c \
 		pkg_manifest.c \
 		pkg_ports.c \
 		pkg_repo.c \
@@ -42,6 +50,11 @@ SRCS=		${PC} \
 		plugins.c \
 		pkg_old.c \
 		pkg.pc
+
+.if defined(DARWIN)
+LDFLAGS+=-L${.CURDIR}/../compat
+LDADD+=-lcompat
+.endif
 
 CLEANFILES=	${PC} ${PKGH}
 
@@ -99,9 +112,20 @@ LDADD+=		-lsqlite3 \
 		-larchive \
 		-lsbuf \
 		-lfetch \
-		-lelf \
 		-lutil \
 		-lpthread
+
+.if defined(DARWIN)
+LDADD+=		-lresolv
+LDADD+=		-lssl \
+		-lcrypto
+.else
+LDADD+=		-lelf
+.endif
+
+.if defined(DARWIN)
+LDADD+=		-L/usr/local/lib
+.endif
 
 .if exists(/usr/include/edit/readline/readline.h)
 LDADD+=		-ledit

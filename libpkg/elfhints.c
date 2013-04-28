@@ -27,6 +27,8 @@
  * $FreeBSD: stable/8/sbin/ldconfig/elfhints.c 76224 2001-05-02 23:56:21Z obrien $
  */
 
+#ifdef __FreeBSD__
+
 #include <sys/param.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -534,3 +536,5 @@ write_elf_hints(const char *hintsfile)
 		err(1, "rename %s to %s", tempname, hintsfile);
 	free(tempname);
 }
+
+#endif

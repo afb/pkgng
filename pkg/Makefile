@@ -54,6 +54,11 @@ DEBUG_FLAGS+=	-ggdb -O0
 DEBUG_FLAGS+=	-pg
 .endif
 
+.if defined(DARWIN)
+CFLAGS+=	-D"__DECONST(type,var)=((type)(uintptr_t)(const void *)(var))" \
+		-D"sbuf_new_auto()=sbuf_new(NULL, NULL, 0, SBUF_AUTOEXTEND)"
+.endif
+
 CFLAGS+=	-I${.CURDIR}/../libpkg \
 			-I${.CURDIR}/../external/uthash
 LDADD+=		-L${.OBJDIR}/../libpkg \
@@ -65,12 +70,14 @@ LDADD+=		-L${.OBJDIR}/../libpkg \
 		-lfetch \
 		-lssl \
 		-lcrypto \
-		-lmd \
 		-lz \
 		-lbz2 \
 		-llzma \
-		-lbsdxml \
 		${LDADD_STATIC}
+
+.if !defined(DARWIN)
+LDADD+=		-lmd
+.endif
 
 .if !exists(/usr/include/jail.h)
 CFLAGS+=	-DNO_LIBJAIL
@@ -78,8 +85,18 @@ CFLAGS+=	-DNO_LIBJAIL
 LDADD+=		-ljail
 .endif
 
-.if !defined(STATIC_PKGNG)
+.if defined(NO_BSDXML)
+CFLAGS+=	-DNO_BSDXML
+.else
+LDADD+=		-lbsdxml
+.endif
+
+.if !defined(STATIC_PKGNG) && !defined(DARWIN)
 LDFLAGS+=	-Wl,-rpath=/usr/lib:${PREFIX}/lib
+.endif
+
+.if defined(DARWIN)
+LDADD+=		-L/opt/local/lib
 .endif
 
 WARNS?=		6

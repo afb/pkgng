@@ -22,13 +22,16 @@ LDADD_STATIC+=	-lsqlite3 \
 		-lsbuf \
 		-lfetch \
 		-lpthread \
-		-lelf \
 		-lssl \
 		-lcrypto \
-		-lmd \
 		-lz \
 		-lbz2 \
 		-llzma
+
+.if !defined(DARWIN)
+LDADD_STATIC+=	-lelf
+LDADD_STATIC+=	-lmd
+.endif
 
 .if exists(/usr/include/edit/readline/readline.h)
 LDADD_STATIC+=	-ledit \

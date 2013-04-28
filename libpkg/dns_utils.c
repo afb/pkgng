@@ -35,6 +35,13 @@
 
 #include "private/utils.h"
 
+#ifdef __APPLE__
+#include <dns_util.h>
+#define HEADER dns_header_t
+#define C_IN ns_c_in
+#define T_SRV ns_t_srv
+#endif
+
 typedef union {
 	HEADER hdr;
 	unsigned char buf[1024];

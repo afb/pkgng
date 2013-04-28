@@ -51,7 +51,11 @@ query_tty_yesno(const char *msg, ...)
 	int	 tty_fd;
 	FILE	*tty;
 
+#ifdef O_TTY_INIT
 	tty_fd = open(_PATH_TTY, O_RDWR|O_TTY_INIT);
+#else
+	tty_fd = -1;
+#endif
 	if (tty_fd == -1)
 		return (r);		/* No ctty -- return the
 					 * default answer */

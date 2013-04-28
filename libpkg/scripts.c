@@ -40,7 +40,12 @@
 #include "private/pkg.h"
 #include "private/event.h"
 
+#ifdef __APPLE__
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#else
 extern char **environ;
+#endif /* __APPLE__ */
 
 int
 pkg_script_run(struct pkg * const pkg, pkg_script type)
