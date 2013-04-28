@@ -3,6 +3,10 @@ SUBDIR=	external \
 	libpkg \
 	pkg
 
+.if defined(DARWIN)
+SUBDIR+=	compat
+.endif
+
 NEWVERS=	newvers.sh
 
 .if !defined(NOSTATIC)
