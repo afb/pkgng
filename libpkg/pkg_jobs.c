@@ -47,7 +47,7 @@ static struct pkg *get_local_pkg(struct pkg_jobs *j, const char *origin, unsigne
 static int pkg_jobs_fetch(struct pkg_jobs *j);
 static bool newer_than_local_pkg(struct pkg_jobs *j, struct pkg *rp, bool force);
 static bool new_pkg_version(struct pkg_jobs *j);
-static int order_pool(struct pkg_jobs *j);
+static int order_pool(struct pkg_jobs *j, bool force);
 
 int
 pkg_jobs_new(struct pkg_jobs **j, pkg_jobs_t t, struct pkgdb *db)
@@ -75,16 +75,16 @@ pkg_jobs_set_flags(struct pkg_jobs *j, pkg_flags flags)
 }
 
 int
-pkg_jobs_set_repository(struct pkg_jobs *j, const char *name)
+pkg_jobs_set_repository(struct pkg_jobs *j, const char *ident)
 {
 	struct pkg_repo *r;
 
-	if ((r = pkg_repo_find("name")) == NULL) {
-		pkg_emit_error("Unknown repository: %s", name);
+	if ((r = pkg_repo_find_ident(ident)) == NULL) {
+		pkg_emit_error("Unknown repository: %s", ident);
 		return (EPKG_FATAL);
 	}
 
-	j->reponame = r->reponame;
+	j->reponame = pkg_repo_name(r);
 
 	return (EPKG_OK);
 }
@@ -283,8 +283,7 @@ jobs_solve_deinstall(struct pkg_jobs *j)
 static bool
 recursive_autoremove(struct pkg_jobs *j)
 {
-	struct pkg *pkg1, *tmp1, *pkg2, *tmp2;
-	struct pkg_dep *dep;
+	struct pkg *pkg1, *tmp1;
 	char *origin;
 
 	HASH_ITER(hh, j->bulk, pkg1, tmp1) {
@@ -292,13 +291,7 @@ recursive_autoremove(struct pkg_jobs *j)
 			HASH_DEL(j->bulk, pkg1);
 			pkg_get(pkg1, PKG_ORIGIN, &origin);
 			HASH_ADD_KEYPTR(hh, j->jobs, origin, strlen(origin), pkg1);
-			HASH_ITER(hh, j->bulk, pkg2, tmp2) {
-				HASH_FIND_STR(pkg2->rdeps, origin, dep);
-				if (dep != NULL) {
-					HASH_DEL(pkg2->rdeps, dep);
-					pkg_dep_free(dep);
-				}
-			}
+			remove_from_rdeps(j, origin);
 			return (true);
 		}
 	}
@@ -340,6 +333,7 @@ jobs_solve_upgrade(struct pkg_jobs *j)
 	struct pkgdb_it *it;
 	char *origin;
 	struct pkg_dep *d, *dtmp;
+	int ret;
 
 	if ((j->flags & PKG_FLAG_PKG_VERSION_TEST) != PKG_FLAG_PKG_VERSION_TEST)
 		if (new_pkg_version(j)) {
@@ -374,8 +368,12 @@ order:
 
 	/* now order the pool */
 	while (HASH_COUNT(j->bulk) > 0) {
-		if (order_pool(j) != EPKG_OK)
+		/* XXX: see comment at jobs_solve_install */
+		ret = order_pool(j, false);
+		if (ret == EPKG_FATAL)
 			return (EPKG_FATAL);
+		else if (ret == EPKG_END)
+			break;
 	}
 
 	j->solved = true;
@@ -399,11 +397,13 @@ remove_from_deps(struct pkg_jobs *j, const char *origin)
 }
 
 static int
-order_pool(struct pkg_jobs *j)
+order_pool(struct pkg_jobs *j, bool force)
 {
 	struct pkg *pkg, *tmp;
 	char *origin;
 	unsigned int nb;
+	struct sbuf *errb;
+	struct pkg_dep *d, *dtmp;
 
 	nb = HASH_COUNT(j->bulk);
 	HASH_ITER(hh, j->bulk, pkg, tmp) {
@@ -416,8 +416,38 @@ order_pool(struct pkg_jobs *j)
 	}
 
 	if (nb == HASH_COUNT(j->bulk)) {
-		pkg_emit_error("Error while ordering the jobs, probably a circular dependency");
-		return (EPKG_FATAL);
+		errb = sbuf_new_auto();
+		HASH_ITER(hh, j->bulk, pkg, tmp) {
+			pkg_get(pkg, PKG_ORIGIN, &origin);
+			sbuf_printf(errb, "%s: ", origin);
+			HASH_ITER(hh, pkg->deps, d, dtmp) {
+				if (d->hh.next != NULL)
+					sbuf_printf(errb, "%s, ", pkg_dep_get(d, PKG_DEP_ORIGIN));
+				else
+					sbuf_printf(errb, "%s\n", pkg_dep_get(d, PKG_DEP_ORIGIN));
+			}
+			if (force) {
+				HASH_DEL(j->bulk, pkg);
+				HASH_ADD_KEYPTR(hh, j->jobs, origin, strlen(origin), pkg);
+				remove_from_rdeps(j, origin);
+			}
+
+		}
+		sbuf_finish(errb);
+		if (force) {
+			pkg_emit_notice("Warning while trying to install/upgrade packages, "
+					"as there are unresolved dependencies, "
+					"but installation is forced:\n%s",
+					sbuf_data(errb));
+			sbuf_delete(errb);
+			return (EPKG_END);
+		}
+		else {
+			pkg_emit_error("Error while trying to install/upgrade packages, "
+					"as there are unresolved dependencies:\n%s", sbuf_data(errb));
+			sbuf_delete(errb);
+			return (EPKG_FATAL);
+		}
 	}
 
 	return (EPKG_OK);
@@ -712,6 +742,7 @@ jobs_solve_install(struct pkg_jobs *j)
 	struct job_pattern *jp = NULL;
 	struct pkg *pkg, *tmp, *p;
 	struct pkg_dep *d, *dtmp;
+	int ret;
 
 	if ((j->flags & PKG_FLAG_PKG_VERSION_TEST) != PKG_FLAG_PKG_VERSION_TEST)
 		if (new_pkg_version(j)) {
@@ -750,8 +781,18 @@ order:
 
 	/* now order the pool */
 	while (HASH_COUNT(j->bulk) > 0) {
-		if (order_pool(j) != EPKG_OK)
+		/*
+		 * XXX: create specific flag that allows to install or upgrade
+		 * a package even if it misses some dependencies, PKG_FORCE
+		 * should not logically apply to this situation, as it is
+		 * designed only for reinstalling packages, but not for
+		 * installing packages with missing dependencies...
+		 */
+		ret = order_pool(j, false);
+		if (ret == EPKG_FATAL)
 			return (EPKG_FATAL);
+		else if (ret == EPKG_END)
+			break;
 	}
 
 	j->solved = true;
